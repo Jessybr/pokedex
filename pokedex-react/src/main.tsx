@@ -7,3 +7,6 @@ createRoot(document.getElementById('root')!).render(
     <Pokedex />
   </StrictMode>,
 )
+
+// para iniciar o projeto, use o comando:
+// npm run dev
