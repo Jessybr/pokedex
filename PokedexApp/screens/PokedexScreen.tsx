@@ -1,135 +1,167 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getPokemons } from '../services/api';
 import { Pokemon } from '../types/Pokemon';
 import { PokemonCard } from '../components/PokemonCard';
-import { getPokemonDetails, getPokemons } from '../services/api';
-import { RootStackParamList } from '../navigation';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 
+const PAGE_SIZE = 30;
 
 export const PokedexScreen = () => {
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const insets = useSafeAreaInsets(); // Hook para área segura
+  const insets = useSafeAreaInsets();
+
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
-  const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [filteredPokemons, setFilteredPokemons] = useState<Pokemon[]>([]);
   const [offset, setOffset] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const LIMIT = 30;
+  // Carregamento inicial
   useEffect(() => {
-    fetchInitialData();
+    const fetchPokemons = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await getPokemons(PAGE_SIZE, 0);
+        setPokemons(data);
+        setFilteredPokemons(data);
+        setOffset(PAGE_SIZE);
+        setHasMore(data.length === PAGE_SIZE);
+      } catch (err) {
+        setError('Falha ao carregar Pokémons. Verifique sua conexão.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPokemons();
   }, []);
 
-  const fetchInitialData = async () => {
-    try {
-      const list = await getPokemons(LIMIT, offset);
-      const details = await Promise.all(list.map(p => getPokemonDetails(p.url)));
-      setPokemons(details);
-    } catch (err: any) {
-      setError('Falha ao carregar Pokémons. Verifique sua conexão.');
-    } finally {
-      setIsLoading(false);
+  // Filtro de busca
+  useEffect(() => {
+    if (search.trim() === '') {
+      setFilteredPokemons(pokemons);
+    } else {
+      setFilteredPokemons(
+        pokemons.filter(p =>
+          p.name.toLowerCase().includes(search.trim().toLowerCase())
+        )
+      );
     }
-  };
+  }, [search, pokemons]);
 
+  // Carregar mais pokémons ao chegar no fim da lista
   const loadMorePokemons = async () => {
-    if (isLoadingMore) return;
-    setIsLoadingMore(true);
-    const newOffset = offset + LIMIT;
-
+    if (isLoadingMore || !hasMore || search.trim() !== '') return;
     try {
-      const list = await getPokemons(LIMIT, newOffset);
-      const details = await Promise.all(list.map(p => getPokemonDetails(p.url)));
-      setPokemons(prev => [...prev, ...details]);
-      setOffset(newOffset);
+      setIsLoadingMore(true);
+      const data = await getPokemons(PAGE_SIZE, offset);
+      setPokemons(prev => [...prev, ...data]);
+      setOffset(prev => prev + PAGE_SIZE);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
-      setError('Erro ao carregar mais Pokémons.');
+      setError('Falha ao carregar mais Pokémons.');
     } finally {
       setIsLoadingMore(false);
     }
   };
 
-  const filtered = pokemons.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const renderEmptyComponent = () => {
+    if (isLoading) return null;
+    if (search.trim() !== '') {
+      return (
+        <Text style={styles.emptyText}>
+          Nenhum Pokémon encontrado para '{search}'
+        </Text>
+      );
+    }
+    return (
+      <Text style={styles.emptyText}>
+        Nenhum Pokémon para exibir no momento.
+      </Text>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={{ padding: 16 }}>
+        <ActivityIndicator size="small" />
+      </View>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+        <Text>Carregando Pokémons...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Pokédex</Text>
+    <View style={{ flex: 1, paddingTop: insets.top }}>
       <TextInput
-        placeholder="Buscar pokémon..."
-        style={styles.input}
-        onChangeText={setSearch}
+        style={styles.searchInput}
+        placeholder="Buscar Pokémon"
         value={search}
+        onChangeText={setSearch}
+        autoCapitalize="none"
       />
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#FF0000" style={{ marginTop: 20 }} />
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={item => item.id.toString()}
-          numColumns={2}
-          renderItem={({ item }) => (
-                <PokemonCard
-                    pokemon={item}
-                    onPress={() => navigation.navigate('PokemonDetail', { pokemon: item })}
-                />
-          )}
-          onEndReached={loadMorePokemons}
-          onEndReachedThreshold={0.2}
-          ListFooterComponent={
-            isLoadingMore ? (
-              <ActivityIndicator size="small" color="#555" style={{ margin: 16 }} />
-            ) : null
-          }
-          ListEmptyComponent={() => {
-            if (search) {
-              return (
-                <Text style={styles.empty}>
-                  Nenhum Pokémon encontrado para '{search}'
-                </Text>
-              );
-            }
-            if (!isLoading && pokemons.length === 0) {
-              return (
-                <Text style={styles.empty}>
-                  Nenhum Pokémon para exibir no momento.
-                </Text>
-              );
-            }
-            return null;
-          }}
-        />
-      )}
+      <FlatList
+        data={filteredPokemons}
+        renderItem={({ item }) => <PokemonCard pokemon={item} />}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={2}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={renderEmptyComponent}
+        onEndReached={loadMorePokemons}
+        onEndReachedThreshold={0.2}
+        ListFooterComponent={renderFooter}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 16 },
-  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 12 },
-  input: {
-    backgroundColor: '#f1f1f1',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 20,
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  error: {
-    fontSize: 16,
-    textAlign: 'center',
+  errorText: {
     color: 'red',
-    marginTop: 20,
-  },
-  empty: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#777',
-    marginTop: 30,
+  },
+  listContent: {
+    padding: 8,
+    flexGrow: 1,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 32,
+    color: '#888',
+    fontSize: 16,
+  },
+  searchInput: {
+    margin: 8,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
   },
 });

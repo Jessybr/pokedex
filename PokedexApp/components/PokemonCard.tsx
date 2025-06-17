@@ -1,32 +1,47 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Pokemon } from '../types/Pokemon';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { Pokemon } from '../../types/Pokemon';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'; 
+import { RootStackParamList } from '../../types/Navigation'; 
 import { capitalize } from '../utils/format';
 
-type Props = {
+interface Props {
   pokemon: Pokemon;
-  onPress?: () => void;
-};
+}
 
-export const PokemonCard = ({ pokemon, onPress }: Props) => {
+type PokemonCardNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PokemonDetails'>;
+
+export const PokemonCard = ({ pokemon }: Props) => {
+  const navigation = useNavigation<PokemonCardNavigationProp>();
+
+  const handlePress = () => {
+    navigation.navigate('PokemonDetails', { pokemonId: pokemon.id });
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} style={styles.card}>
-      <Image source={{ uri: pokemon.image }} style={styles.image} />
-      <Text style={styles.name}>{capitalize(pokemon.name)}</Text>
+    <TouchableOpacity onPress={handlePress} style={styles.touchableCard}>
+      {}
+      <View style={styles.cardInner}>
+        <Image source={{ uri: pokemon.image }} style={styles.image} />
+        <Text style={styles.name}>{capitalize(pokemon.name)}</Text>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  touchableCard: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
     margin: 8,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    elevation: 3,
   },
-  image: { width: 80, height: 80, marginBottom: 8 },
-  name: { fontSize: 16, fontWeight: 'bold' },
+  cardInner: {
+    backgroundColor: '#e0e0e0',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    flex: 1,
+  },
+  image: { width: 80, height: 80 }, // Estilo para a imagem do Pokémon.
+  name: { marginTop: 8, fontWeight: 'bold' }, // Estilo para o nome do Pokémon.
 });

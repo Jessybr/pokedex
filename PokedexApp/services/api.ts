@@ -1,41 +1,44 @@
 import axios from 'axios';
-import { Pokemon, PokemonListItem } from '../types/Pokemon';
+import { Pokemon } from '../types/Pokemon';
 
-const API_BASE = 'https://pokeapi.co/api/v2';
+const API_URL = 'https://pokeapi.co/api/v2';
 
-export async function getPokemons(limit: number, offset = 0): Promise<PokemonListItem[]> {
+export const getPokemons = async (limit = 30, offset = 0): Promise<Pokemon[]> => {
   try {
-    const res = await axios.get(`${API_BASE}/pokemon?limit=${limit}&offset=${offset}`);
-    return res.data.results;
-  } catch (error) {
-    console.error('Erro ao buscar a lista de Pokémons:', error);
-    throw new Error('Não foi possível carregar a lista de Pokémons.');
-  }
-}
+    const response = await axios.get(`${API_URL}/pokemon?limit=${limit}&offset=${offset}`);
+    const results = response.data.results;
 
-export async function getPokemonSpecies(id: number): Promise<string> {
-  try {
-    const res = await axios.get(`${API_BASE}/pokemon-species/${id}`);
-    const entry = res.data.flavor_text_entries.find(
-      (entry: any) => entry.language.name === 'en'
+    const pokemons = await Promise.all(
+      results.map(async (item: any) => {
+        const details = await axios.get(item.url);
+        return {
+          id: details.data.id,
+          name: details.data.name,
+          image: details.data.sprites.other['official-artwork'].front_default,
+          types: details.data.types.map((t: any) => t.type.name),
+          height: details.data.height,
+          weight: details.data.weight,
+        };
+      })
     );
-    return entry ? entry.flavor_text.replace(/\f/g, ' ') : 'Descrição não encontrada.';
-  } catch (err) {
-    return 'Erro ao buscar descrição.';
-  }
-}
 
-export async function getPokemonDetails(url: string): Promise<Pokemon> {
+    return pokemons;
+  } catch (error) {
+    throw new Error('Erro ao buscar Pokémons');
+  }
+};
+
+export const getPokemonById = async (id: number): Promise<Pokemon> => {
   try {
-    const res = await axios.get(url);
+    const response = await axios.get(`${API_URL}/pokemon/${id}`);
+    const data = response.data;
     return {
-      id: res.data.id,
-      name: res.data.name,
-      image: res.data.sprites.front_default,
-      types: res.data.types.map((t: any) => t.type.name),
+      id: data.id,
+      name: data.name,
+      image: data.sprites.other['official-artwork'].front_default,
+      types: data.types.map((t: any) => t.type.name),
     };
   } catch (error) {
-    console.error('Erro ao buscar detalhes do Pokémon:', error);
-    throw new Error('Não foi possível carregar os detalhes do Pokémon.');
+    throw new Error('Erro ao buscar detalhes do Pokémon');
   }
-}
+};

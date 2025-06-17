@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./Pokedex.css";
-import PokeCard from "./pokeCard";
+import PokeCard from "./PokeCard";
 
 type Pokemon = {
   name: string;
@@ -61,7 +61,7 @@ export default function Pokedex() {
 
       {carregando && <p className="pokedex-loading">Carregando...</p>}
       {erro && <p className="pokedex-error">{erro}</p>}
-      {pokemon && <PokeCard pokemon={pokemon} />}
+      {pokemon && <PokeCardnpx react-native upgrade pokemon={pokemon} />}
     </div>
   );
 }
